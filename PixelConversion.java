@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Collections;
 
-//dfg
 class PixelConversion {
     public int[][] getPixels(BufferedImage image) {
         // Cut the image into a ton of pixels, each pixel into rgb values
@@ -35,7 +34,51 @@ class PixelConversion {
     public void mergePixels(BufferedImage img, int ratio) {
         // Given an array of rgb values, merge pixels into a single one based on those
         // rgb values
-        // int rgbValues[][] = getPixels(img);
+        int rgbValues[][] = getPixels(img);
+        BufferedImage finalImage = new BufferedImage(img.getWidth(), img.getHeight(), 1);
+        int newRgbValues[][] = new int[finalImage.getHeight() / ratio][finalImage.getWidth() / ratio];
+        int rows = newRgbValues.length;
+        int cols = newRgbValues[0].length;
+
+        // Setting the last pixel to an non rgb value, waiting until it's changed
+        newRgbValues[rows - 1][cols - 1] = -1;
+        int row, col = 0;
+        int rgbColors[][] = new int[3][ratio * ratio];
+        System.out.println(ratio + ": " + rgbColors.length + ", " + rgbColors[0].length);
+
+        for (int i = 0; newRgbValues[rows - 1][cols - 1] == -1; i++) {
+            int currentRow = i / cols;
+            int currentCol = i % cols;
+            System.out.println(currentRow + ", " + currentCol);
+            for (row = 0; row < ratio - 1; row += ratio) {
+                for (col = 0; col < ratio - 1; col += ratio) {
+                    // Use current row and current col instead of row and col
+                    rgbColors[0][row * 3 + col] = rgbValues[row][col] & 0xff; // b
+                    rgbColors[1][row * 3 + col] = (rgbValues[row][col] & 0xff) << 8; // g
+                    rgbColors[2][row * 3 + col] = (rgbValues[row][col] & 0xff) << 16; // r
+                    System.out.println("old pixel colors: " + rgbColors[0][row * 3 + col] + ", "
+                            + rgbColors[1][row * 3 + col] + ", " + rgbColors[2][row * 3 + col]);
+                }
+            }
+            int blueMean = (int) mean(rgbColors[0]);
+            int greenMean = (int) mean(rgbColors[1]);
+            int redMean = (int) mean(rgbColors[2]);
+            int meanRgb = (blueMean & 0xff) + (greenMean & 0xff) << 8 + (redMean & 0xff) << 16;
+            newRgbValues[currentRow][currentCol] = meanRgb;
+
+            System.out.println("new pixel color is: " + meanRgb);
+        }
+
+        System.out.println("new rgb values are: " + newRgbValues);
+    }
+
+    public float mean(int[] numberList) {
+        int sum = 0;
+        for (int val : numberList) {
+            sum += val;
+        }
+        float meanVal = sum / numberList.length;
+        return meanVal;
     }
 
     // Efficient prime factorisation : complexity of O(sqrt(n))

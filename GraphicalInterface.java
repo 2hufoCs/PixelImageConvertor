@@ -1,4 +1,5 @@
 
+import java.awt.Font;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.awt.event.*;
@@ -23,14 +24,17 @@ public class GraphicalInterface {
         new GraphicalInterface();
     }
 
-    public GraphicalInterface() {
+    public GraphicalInterface() throws IOException {
         PixelConversion pixelConv = new PixelConversion();
         // The frame that appears when there's an error with input
         JLabel errorLabel = new JLabel();
-        errorLabel.setBounds(25, -25, 250, 150);
+        errorLabel.setBounds(25, -25, 250, 175);
+        errorLabel.setFont(new Font("Dialog", 4, 15));
+        System.out.println(errorLabel.getFont());
         JFrame errorFrame = new JFrame();
         errorFrame.add(errorLabel);
         errorFrame.setSize(300, 200);
+        errorFrame.setTitle("Error!");
         errorFrame.setLayout(null);
 
         // Image selection and path
@@ -85,6 +89,12 @@ public class GraphicalInterface {
                         ratio.addItem(val);
                     }
 
+                    if (commonDivisors.size() == 0) {
+                        errorLabel.setText(
+                                "<html>Sorry, it looks like there aren't any common divisors between the width and height of your image. Either crop it or choose another one.");
+                        errorFrame.setVisible(true);
+                    }
+
                     System.out.println("width divisors: " + widthDivisors);
                     System.out.println("height divisors: " + heightDivisors);
                     System.out.println("Common divisors are: " + commonDivisors);
@@ -99,7 +109,29 @@ public class GraphicalInterface {
         // Once all fields are completed and submit is pressed, begin pixelization
         submit.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-
+                if (imgPath.getText() == "") {
+                    errorLabel.setText(
+                            "<html>No image was selected! Press \"Select image...\" to choose one from the Resources folder.");
+                    System.out.println("yep");
+                    errorFrame.setVisible(true);
+                } else if (!new File(imgPath.getText()).exists()) {
+                    errorLabel.setText(
+                            "<html>It looks like the file doesn't exist. Did you move or delete it ? If you typed the path by hand, try using the \"Select image...\" button to open the explorer to avoid typing errors.");
+                    errorFrame.setVisible(true);
+                    System.out.println("path is: " + imgPath.getText() + ", size is: " + imgPath.getText().length());
+                } else if (!new ImageFilter().accept(new File(imgPath.getText()))) {
+                    errorLabel.setText(
+                            "<html>Sorry, the only extensions that are currently supported are .png, .jpeg and .jpg... Consider converting your image to one of these using an online tool!");
+                    errorFrame.setVisible(true);
+                } else {
+                    BufferedImage imgToPixelate = null;
+                    try {
+                        imgToPixelate = ImageIO.read(new File(imgPath.getText()));
+                    } catch (Exception ex) {
+                        System.out.println("*fades out of existence* " + ex);
+                    }
+                    pixelConv.mergePixels(imgToPixelate, (int) ratio.getSelectedItem());
+                }
             }
         });
 
