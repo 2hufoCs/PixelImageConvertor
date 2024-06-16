@@ -2,9 +2,12 @@
 import java.awt.Font;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.awt.event.*;
-import java.io.*;
-import javax.imageio.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+import java.io.File;
+import java.io.IOException;
+import javax.imageio.ImageIO;
 
 import javax.swing.JLabel;
 import javax.swing.JFrame;
@@ -18,41 +21,48 @@ import javax.swing.filechooser.FileFilter;
 import java.util.ArrayList;
 
 public class GraphicalInterface {
+    PixelConversion pixelConv = new PixelConversion();
+
+    // The main frame and its components
     JFrame f = new JFrame();
+    JButton chooseFile = new JButton("Select image...");
+    JTextField imgPath = new JTextField();
+    JLabel chooseRatio = new JLabel("Pixelization ratio:");
+    JComboBox<Integer> ratio = new JComboBox<Integer>();
+    JFileChooser imgChooser = new JFileChooser(System.getProperty("user.dir") + "/Resources"); // Get Resources folder
+    JLabel imgLabel = new JLabel();
+    JButton submit = new JButton("Submit");
+
+    // A 2D array containing all the RGB values of the image
+    int[][] imgPixels;
+
+    // The frame that appears when there's an error with input
+    JFrame errorFrame = new JFrame();
+    JLabel errorLabel = new JLabel();
 
     public static void main(String[] args) throws IOException {
         new GraphicalInterface();
     }
 
     public GraphicalInterface() throws IOException {
-        PixelConversion pixelConv = new PixelConversion();
-        // The frame that appears when there's an error with input
-        JLabel errorLabel = new JLabel();
-        errorLabel.setBounds(25, -25, 250, 175);
+        // Setting some initial values for the error frame
         errorLabel.setFont(new Font("Dialog", 4, 15));
-        System.out.println(errorLabel.getFont());
-        JFrame errorFrame = new JFrame();
+        errorLabel.setBounds(25, 0, 250, 175);
         errorFrame.add(errorLabel);
         errorFrame.setSize(300, 200);
         errorFrame.setTitle("Error!");
         errorFrame.setLayout(null);
 
         // Image selection and path
-        JButton chooseFile = new JButton("Select image...");
         chooseFile.setBounds(35, 400, 125, 25);
-        JTextField imgPath = new JTextField();
         imgPath.setBounds(180, 400, 200, 25);
 
         // Ratio selection
-        JLabel chooseRatio = new JLabel("Pixelization ratio:");
         chooseRatio.setBounds(50, 450, 100, 25);
-        JComboBox<Integer> ratio = new JComboBox<Integer>();
         ratio.setBounds(150, 450, 150, 25);
 
         // Opens explorer when choosing file
-        JFileChooser imgChooser = new JFileChooser(System.getProperty("user.dir") + "/Resources");
         imgChooser.setFileFilter(new ImageFilter());
-        JLabel imgLabel = new JLabel();
         imgLabel.setBounds(0, 40, 320, 320);
 
         chooseFile.addActionListener(new ActionListener() {
@@ -69,60 +79,29 @@ public class GraphicalInterface {
                     } catch (Exception ex) {
                         System.out.println("Whoops, " + ex + ", at " + ex.getStackTrace());
                     }
-                    ImageIcon imgIcon = showImage(img);
-                    imgLabel.setIcon(imgIcon);
-                    imgLabel.setBounds((f.getWidth() - imgIcon.getIconWidth()) / 2 - 10, imgLabel.getY(),
-                            imgLabel.getWidth(), imgLabel.getHeight());
-
-                    ArrayList<Integer> widthFactors = pixelConv.primeFactorisation(img.getWidth());
-                    ArrayList<Integer> widthDivisors = pixelConv.getProducts(widthFactors);
-
-                    ArrayList<Integer> heightFactors = pixelConv.primeFactorisation(img.getHeight());
-                    ArrayList<Integer> heightDivisors = pixelConv.getProducts(heightFactors);
-
-                    ArrayList<Integer> commonDivisors = new ArrayList<Integer>(widthDivisors);
-                    commonDivisors.retainAll(heightDivisors);
-
-                    ratio.removeAllItems();
-                    ratio.addItem(1);
-                    for (Integer val : commonDivisors) {
-                        ratio.addItem(val);
-                    }
-
-                    if (commonDivisors.size() == 0) {
-                        errorLabel.setText(
-                                "<html>Sorry, it looks like there aren't any common divisors between the width and height of your image. Either crop it or choose another one.");
-                        errorFrame.setVisible(true);
-                    }
-
-                    System.out.println("width divisors: " + widthDivisors);
-                    System.out.println("height divisors: " + heightDivisors);
-                    System.out.println("Common divisors are: " + commonDivisors);
+                    imgPixels = pixelConv.getPixels(img);
+                    showImage(img);
+                    setRatioValues(img);
                 }
             }
         });
 
         // Submit button
-        JButton submit = new JButton("Submit");
         submit.setBounds(160, 520, 100, 25);
 
         // Once all fields are completed and submit is pressed, begin pixelization
         submit.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                if (imgPath.getText() == "") {
-                    errorLabel.setText(
-                            "<html>No image was selected! Press \"Select image...\" to choose one from the Resources folder.");
-                    System.out.println("yep");
-                    errorFrame.setVisible(true);
+                if (imgPath.getText().length() == 0) {
+                    showError(
+                            "No image was selected! Press \"Select image...\" to choose one from the Resources folder");
                 } else if (!new File(imgPath.getText()).exists()) {
-                    errorLabel.setText(
-                            "<html>It looks like the file doesn't exist. Did you move or delete it ? If you typed the path by hand, try using the \"Select image...\" button to open the explorer to avoid typing errors.");
-                    errorFrame.setVisible(true);
+                    showError(
+                            "It looks like the file doesn't exist. Did you move it or delete it? If you typed the path by hand, try using the \"Select Image...\" button to make sure it's still there.");
                     System.out.println("path is: " + imgPath.getText() + ", size is: " + imgPath.getText().length());
                 } else if (!new ImageFilter().accept(new File(imgPath.getText()))) {
-                    errorLabel.setText(
-                            "<html>Sorry, the only extensions that are currently supported are .png, .jpeg and .jpg... Consider converting your image to one of these using an online tool!");
-                    errorFrame.setVisible(true);
+                    showError(
+                            "Sorry, the only supported formats are .png, .jpg and .jpeg... You can convert you image to another extension using an online convertor!");
                 } else {
                     BufferedImage imgToPixelate = null;
                     try {
@@ -130,7 +109,10 @@ public class GraphicalInterface {
                     } catch (Exception ex) {
                         System.out.println("*fades out of existence* " + ex);
                     }
-                    pixelConv.mergePixels(imgToPixelate, (int) ratio.getSelectedItem());
+                    BufferedImage pixelatedImg = pixelConv.mergePixels(imgToPixelate, (int) ratio.getSelectedItem(),
+                            imgPixels);
+                    showImage(pixelatedImg);
+
                 }
             }
         });
@@ -149,13 +131,43 @@ public class GraphicalInterface {
         f.setVisible(true);
     }
 
-    public ImageIcon showImage(BufferedImage img) {
+    public void setRatioValues(BufferedImage img) {
+        ArrayList<Integer> widthFactors = pixelConv.primeFactorisation(img.getWidth());
+        ArrayList<Integer> widthDivisors = pixelConv.getProducts(widthFactors);
+
+        ArrayList<Integer> heightFactors = pixelConv.primeFactorisation(img.getHeight());
+        ArrayList<Integer> heightDivisors = pixelConv.getProducts(heightFactors);
+
+        ArrayList<Integer> commonDivisors = new ArrayList<Integer>(widthDivisors);
+        commonDivisors.retainAll(heightDivisors);
+
+        ratio.removeAllItems();
+        ratio.addItem(1);
+        for (Integer val : commonDivisors) {
+            ratio.addItem(val);
+        }
+
+        if (commonDivisors.size() == 0) {
+            showError(
+                    "Sorry, it looks like there aren't any common divisors between the width and height of your image. Either crop it or choose another one.");
+        }
+    }
+
+    public void showError(String errorTxt) {
+        errorLabel.setText(
+                "<html>" + errorTxt);
+        errorFrame.setVisible(true);
+    }
+
+    public void showImage(BufferedImage img) {
         int maxDim = Math.max(img.getWidth(), img.getHeight());
         float ratio = (float) 320 / maxDim;
         Image newImg = img.getScaledInstance((int) (img.getWidth() * ratio), (int) (img.getHeight() * ratio),
                 Image.SCALE_DEFAULT);
         ImageIcon imgIcon = new ImageIcon(newImg);
-        return imgIcon;
+        imgLabel.setIcon(imgIcon);
+        imgLabel.setBounds((f.getWidth() - imgIcon.getIconWidth()) / 2 - 10, imgLabel.getY(),
+                imgLabel.getWidth(), imgLabel.getHeight());
     }
 }
 

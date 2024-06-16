@@ -1,4 +1,6 @@
-import java.awt.image.*;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+import java.awt.Color;
 
 import java.lang.Math;
 import java.util.ArrayList;
@@ -12,10 +14,14 @@ class PixelConversion {
 
         int width = image.getWidth();
         int height = image.getHeight();
-        int pixelLength = 3; // each pixel have red, green and blue values (exluding alpha channel)
+        int pixelLength = image.getColorModel().hasAlpha() ? 4 : 3; // each pixel have red, green and blue values
+                                                                    // (exluding alpha channel)
 
         int result[][] = new int[height][width];
         for (int pixel = 0, row = 0, col = 0; pixel + 2 < pixels.length; pixel += pixelLength) {
+            if (row == 69420) {
+                System.out.println(pixels.length + ", " + pixel);
+            }
             int rgb = 0;
             rgb += ((int) pixels[pixel] & 0xff); // blue
             rgb += (((int) pixels[pixel + 1] & 0xff) << 8); // green
@@ -31,45 +37,43 @@ class PixelConversion {
         return result;
     }
 
-    public void mergePixels(BufferedImage img, int ratio) {
-        // Given an array of rgb values, merge pixels into a single one based on those
-        // rgb values
-        int rgbValues[][] = getPixels(img);
-        BufferedImage finalImage = new BufferedImage(img.getWidth(), img.getHeight(), 1);
-        int newRgbValues[][] = new int[finalImage.getHeight() / ratio][finalImage.getWidth() / ratio];
-        int rows = newRgbValues.length;
-        int cols = newRgbValues[0].length;
+    public BufferedImage mergePixels(BufferedImage img, int ratio, int[][] rgbValues) {
+        BufferedImage finalImage = new BufferedImage(img.getWidth() / ratio, img.getHeight() / ratio,
+                BufferedImage.TYPE_INT_RGB);
+        int rows = finalImage.getHeight();
+        int cols = finalImage.getWidth();
 
         // Setting the last pixel to an non rgb value, waiting until it's changed
-        newRgbValues[rows - 1][cols - 1] = -1;
+        finalImage.setRGB(cols - 1, rows - 1, -1);
         int row, col = 0;
         int rgbColors[][] = new int[3][ratio * ratio];
-        System.out.println(ratio + ": " + rgbColors.length + ", " + rgbColors[0].length);
+        double startTime = System.currentTimeMillis();
 
-        for (int i = 0; newRgbValues[rows - 1][cols - 1] == -1; i++) {
+        for (int i = 0; i < rows * cols; i++) {
             int currentRow = i / cols;
             int currentCol = i % cols;
-            System.out.println(currentRow + ", " + currentCol);
-            for (row = 0; row < ratio - 1; row += ratio) {
-                for (col = 0; col < ratio - 1; col += ratio) {
+            for (row = 0; row < ratio; row++) {
+                for (col = 0; col < ratio; col++) {
                     // Use current row and current col instead of row and col
-                    rgbColors[0][row * 3 + col] = rgbValues[row][col] & 0xff; // b
-                    rgbColors[1][row * 3 + col] = (rgbValues[row][col] & 0xff) << 8; // g
-                    rgbColors[2][row * 3 + col] = (rgbValues[row][col] & 0xff) << 16; // r
-                    System.out.println("old pixel colors: " + rgbColors[0][row * 3 + col] + ", "
-                            + rgbColors[1][row * 3 + col] + ", " + rgbColors[2][row * 3 + col]);
+                    int rowIndex = row + currentRow * ratio;
+                    int colIndex = col + currentCol * ratio;
+
+                    rgbColors[0][row * ratio + col] = rgbValues[rowIndex][colIndex] & 0xff; // extract b
+                    rgbColors[1][row * ratio + col] = (rgbValues[rowIndex][colIndex] >> 8) & 0xff; // extract g
+                    rgbColors[2][row * ratio + col] = (rgbValues[rowIndex][colIndex] >> 16) & 0xff; // extract r
                 }
             }
             int blueMean = (int) mean(rgbColors[0]);
             int greenMean = (int) mean(rgbColors[1]);
             int redMean = (int) mean(rgbColors[2]);
-            int meanRgb = (blueMean & 0xff) + (greenMean & 0xff) << 8 + (redMean & 0xff) << 16;
-            newRgbValues[currentRow][currentCol] = meanRgb;
-
-            System.out.println("new pixel color is: " + meanRgb);
+            finalImage.setRGB(currentCol, currentRow, new Color(redMean, greenMean, blueMean).getRGB());
         }
-
-        System.out.println("new rgb values are: " + newRgbValues);
+        System.out.println("merge pixels algorithm duration: " + (System.currentTimeMillis() - startTime) + "ms");
+        System.out.println("ratio = " + ratio + ", final img total pixels = "
+                + finalImage.getWidth() * finalImage.getHeight());
+        System.out
+                .println("------------------------------------------------------------------------------------------");
+        return finalImage;
     }
 
     public float mean(int[] numberList) {
