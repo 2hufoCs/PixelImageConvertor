@@ -126,7 +126,7 @@ public class GraphicalInterface {
         f.add(ratio);
         f.add(submit);
 
-        f.setBounds(1300, 50, 420, 620);
+        f.setBounds(900, 150, 420, 620);
         f.setLayout(null);
         f.setVisible(true);
     }
@@ -156,6 +156,7 @@ public class GraphicalInterface {
     public void showError(String errorTxt) {
         errorLabel.setText(
                 "<html>" + errorTxt);
+        errorFrame.setLocation(f.getX() + 20, f.getY() + 100);
         errorFrame.setVisible(true);
     }
 
